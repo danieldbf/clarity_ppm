@@ -1,2 +1,2 @@
-# clarity_ppm
-Solutions Repository - PPM
+# Solutions Repository - Clarity PPM
+
