@@ -1,0 +1,95 @@
+<gel:script 
+xmlns:core="jelly:core" 
+xmlns:gel="jelly:com.niku.union.gel.GELTagLibrary" 
+xmlns:soap="jelly:com.niku.union.gel.SOAPTagLibrary"
+xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+xmlns:xog="http://www.niku.com/xog" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <gel:out>Simple Example Request Rest</gel:out>
+  <!--
+********************************************************************************
+* Script:  Generate token access
+*
+* Created By: Daniel Barros
+*
+* Description:  Integration Script to REST API.
+*
+* Notas:  API: <url>
+*
+********************************************************************************
+-->
+  
+<!-- Dynamic auth access --> 
+<core:include file="./gel-includes/xog_login.xml"/>   
+<core:choose>
+
+<!-- Get infos from custom.propertis -->
+<core:set var="basicAuth">${token_base64}</core:set> 
+<core:set var="restEndPoint" value="${url_token}"/>
+  
+<core:new var="urlToken" className="java.net.URL" >
+<core:arg type="java.lang.String" value="${restEndPoint}"/>
+</core:new>
+
+<core:choose>
+ <!-- Connection string -->
+<core:invoke var="connection" method="openConnection" on="${urlToken}"/>
+<core:expr value='${connection.setRequestMethod("POST")}'/>
+<core:expr value='${connection.setRequestProperty("Authorization", basicAuth)}'/>
+<core:expr value='${connection.setRequestProperty("Content-type", "application/x-www-form-urlencoded")}'/>
+
+		<!-- Call HTTPS  -->				
+		<core:catch var="connFail">
+		<core:invoke var="outPutResponse" method="getInputStream" on="${connection}"/>
+		</core:catch>
+		<core:choose>
+		<core:when test="${connFail != null}">
+			<gel:out>Output error.</gel:out>
+			<gel:out>Message error: ${connFail}</gel:out>
+      
+			<!-- Set the message erro on scope process intance to use in the next step -->
+			<gel:persist var="erroTokenAcesso" scope="INSTANCE">Error: ${connFail}</gel:persist>
+		</core:when>
+		<core:otherwise>
+                      
+		<!-- Get respose  -->
+		<core:invoke var="responseCode" method="getResponseCode" on="${connection}"/>	
+		<gel:out>Status: ${responseCode} </gel:out>
+		
+		<core:choose>  
+			<core:when test="${responseCode == '200'}">		
+			
+			<!-- Convert REST to String -->
+			<core:invokeStatic var="resultString" className="org.apache.commons.io.IOUtils" method="toString">
+			<core:arg type="java.io.InputStream" value="${outPutResponse}"/>
+			<core:arg value="UTF-8"/>
+			</core:invokeStatic>
+
+			<!-- Close connection  -->
+			<core:expr value="${outPutResponse.close()}"/>		
+
+			<!-- Convert String to JSON -->
+			<core:new var="listParseJson" className="org.json.JSONObject"> 
+			<core:arg type="java.lang.String" value='${resultString}'/> 
+			</core:new> 
+			
+			<!-- Show info -->					
+			<core:set var="tokenAcess" value="${listParseJson.get('access_token')}"/>		
+			<gel:out> tokenAcess: ${tokenAcess} </gel:out>
+			
+      <!-- Set the token on scope process intance to use in the next step -->			
+			<gel:persist var="tokenAprovacao" scope="INSTANCE">${tokenAcesso}</gel:persist>
+
+			</core:when>
+			<core:otherwise>
+			<gel:out> Error request</gel:out>
+			<gel:out> responseCode != 200: ${responseCode}</gel:out>
+			</core:otherwise>
+		</core:choose>
+		</core:otherwise>
+		</core:choose>
+</core:choose>
+ </core:choose>
+  <!-- Dynamic logout access --> 
+  <core:include file="./gel-includes/xog_logout.xml"/>  
+</gel:script>
