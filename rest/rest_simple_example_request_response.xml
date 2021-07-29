@@ -23,7 +23,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <core:include file="./gel-includes/xog_login.xml"/>   
 <core:choose>
 
-<!-- Get infos from custom.propertis -->
+<!-- Get infos from custom.properties -->
 <core:set var="basicAuth">${token_base64}</core:set> 
 <core:set var="restEndPoint" value="${url_token}"/>
   
@@ -52,7 +52,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 		</core:when>
 		<core:otherwise>
                       
-		<!-- Get respose  -->
+		<!-- Get response  -->
 		<core:invoke var="responseCode" method="getResponseCode" on="${connection}"/>	
 		<gel:out>Status: ${responseCode} </gel:out>
 		
@@ -77,8 +77,8 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 			<core:set var="tokenAcess" value="${listParseJson.get('access_token')}"/>		
 			<gel:out> tokenAcess: ${tokenAcess} </gel:out>
 			
-      <!-- Set the token on scope process intance to use in the next step -->			
-			<gel:persist var="tokenAprovacao" scope="INSTANCE">${tokenAcesso}</gel:persist>
+     			 <!-- Set the token on scope process intance to use in the next step -->			
+			<gel:persist var="token" scope="INSTANCE">${tokenAcesso}</gel:persist>
 
 			</core:when>
 			<core:otherwise>
