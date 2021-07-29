@@ -1,0 +1,247 @@
+<gel:script 
+xmlns:core="jelly:core" 
+xmlns:gel="jelly:com.niku.union.gel.GELTagLibrary" 
+xmlns:soap="jelly:com.niku.union.gel.SOAPTagLibrary"
+xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+xmlns:sql="jelly:sql" 
+xmlns:util="jelly:util" 
+xmlns:xog="http://www.niku.com/xog" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<gel:out>Advanced Example Request Rest</gel:out>
+
+<!--
+********************************************************************************
+* Script:  Post Json using the token access
+*
+* Created By: Daniel Barros
+*
+* Description:  Integration Script to REST API.
+*
+* Notas:  API: <url>
+*
+********************************************************************************
+-->
+  
+  <core:catch var="connFail">
+    <gel:setDataSource dbId="niku"/>
+  </core:catch>
+  <core:if test="${ connFail != null }">
+    <gel:out>error connection data base.</gel:out>
+  </core:if>
+  
+  <!-- Dynamic auth access --> 
+  <core:include file="./gel-includes/xog_login.xml"/>
+  
+  <!-- Get object ID from process -->
+  <core:set value="${gel_objectInstanceId}" var="objId"/>
+  
+  <!-- Set aux enviroments -->  
+  <core:set value="" var="resultString"/>
+  
+  <!-- Get token acess from instance process -->
+  <core:set var="basicAuth">Bearer ${token}</core:set>
+  <core:choose>
+    <!-- Get info from object using query -->
+    <sql:query escapeText="false" var="rs_info"><![CDATA[
+              
+      ]]><sql:param value="${objId}"/>
+    </sql:query>
+    <core:choose>
+      <!-- Set info from object -->
+      <core:set value="${rs_info.rows[0].Value}" var="codeInfo"/>      
+    </core:choose>
+    <gel:out>codigoCRQ: ${codeInfo}</gel:out>
+        
+    <!-- Check if token is OK -->
+    <core:when test="${token == null or token == ''}">
+      <gel:out>Error acess API - previous step.</gel:out>
+      <core:set value="1" var="control_fail"/>
+      <!-- Get error message from instance process -->
+      <core:set value="${erroTokenAcesso}" var="resultString"/>
+    </core:when>
+    <core:otherwise>
+      
+      <!--
+********************************************************************************
+            Get infos from custom.properties 
+********************************************************************************
+-->
+      <core:set value="${user}" var="user"/>
+      <core:set value="${pass}" var="pass"/>
+      <core:set value="${url}" var="url"/>      
+      <!--
+********************************************************************************
+            Create Timestamp
+********************************************************************************
+-->
+      <core:set escapeText="false" var="formatDate">
+        yyyy-MM-dd'T'HH:mm:ss
+      </core:set>
+      <core:new className="java.util.Date" var="currentDate"/>
+      <core:new className="java.text.SimpleDateFormat" var="format">
+        <core:arg type="java.lang.String" value="${formatDate}"/>
+      </core:new>
+      <core:invoke method="format" on="${format}" var="timestamp">
+        <core:arg type="java.util.Date" value="${currentDate}"/>
+      </core:invoke>
+      <gel:out>timestamp: ${timestamp}</gel:out>
+      <!--
+********************************************************************************
+            Create DateTime
+********************************************************************************
+-->
+      <core:set escapeText="false" var="formatDate">
+    yyyy-MM-dd:HH:mm:ssS
+  </core:set>
+      <core:new className="java.util.Date" var="currentDate"/>
+      <core:new className="java.text.SimpleDateFormat" var="format">
+        <core:arg type="java.lang.String" value="${formatDate}"/>
+      </core:new>
+      <core:invoke method="format" on="${format}" var="dateTime">
+        <core:arg type="java.util.Date" value="${currentDate}"/>
+      </core:invoke>
+      <core:set value="${dateTime.replace('-', '').replace(':', '')}" var="dateTimeFormat"/>
+      <gel:out>dateTimeFormat: ${dateTimeFormat}</gel:out>
+      <!--
+
+      <!-- Create URL access   -->
+      <core:set value="${url}" var="urlEndPoint"/>
+      <core:new className="java.net.URL" var="urlRest">
+        <core:arg type="java.lang.String" value="${urlEndPoint}"/>
+      </core:new>
+      <!--
+********************************************************************************
+            Create JSON
+********************************************************************************
+-->
+      <core:set escapeText="false" var="requestJSON">
+  {
+      "MessageHeaderRequest": {        
+        "Timestamp": "${timestamp}",        
+      },
+      "DetailRequest": {
+        "ID": "${code}",        
+      }
+    }
+  </core:set>
+      <gel:out>requestJSON: ${requestJSON}</gel:out>
+<!--
+********************************************************************************
+           Connection String
+********************************************************************************
+-->
+      <core:invoke method="openConnection" on="${urlRest}" var="connection"/>
+      <core:expr value="${connection.setRequestMethod(&quot;POST&quot;)}"/>
+      <core:expr value="${connection.setRequestProperty(&quot;Authorization&quot;, basicAuth)}"/>
+      <core:expr value="${connection.setRequestProperty(&quot;username&quot;, user)}"/>
+      <core:expr value="${connection.setRequestProperty(&quot;password&quot;, pass)}"/>
+      <core:expr value="${connection.setRequestProperty(&quot;Content-type&quot;, &quot;application/json&quot;)}"/>
+      <core:expr value="${connection.setRequestProperty(&quot;Accept&quot;, &quot;application/json&quot;)}"/>
+      <core:expr value="${connection.setRequestProperty(&quot;Connection&quot;, &quot;keep-alive&quot;)}"/>
+      <core:expr value="${connection.setDoOutput(true)}"/>
+      
+      <!-- Add JSON to connection  -->
+      <core:invoke method="getOutputStream" on="${connection}" var="outputStream"/>
+      <core:new className="java.io.OutputStreamWriter" var="outputStreamWriter">
+        <core:arg type="java.io.OutputStream" value="${outputStream}"/>
+      </core:new>
+      <core:expr value="${outputStreamWriter.write(requestJSON)}"/>
+      <core:expr value="${outputStreamWriter.close()}"/>
+      <!-- Call HTTPS  -->
+      <core:catch var="connFailHttps">
+        <core:invoke method="getInputStream" on="${connection}" var="outPutResponse"/>
+      </core:catch>
+      <core:choose>
+        <!-- Waiting 5 seconds  -->
+      <util:sleep millis="5000"/>
+        
+        <core:when test="${connFailHttps != null}">
+          <gel:out>Erro connection API.</gel:out>
+          <gel:out>Message error: ${connFailHttps}</gel:out>          
+          <core:set value="Erro: ${connFailHttps}" var="resultString"/>
+        </core:when>
+        <core:otherwise>
+          
+<!--
+********************************************************************************
+            Get Response
+********************************************************************************
+-->
+          <core:invoke method="getResponseCode" on="${connection}" var="responseCode"/>
+          <gel:out>Status: ${responseCode} </gel:out>
+          <core:choose>
+            <!-- Check response -->
+            <core:when test="${responseCode == '200'}">
+              
+              <!-- Convert Response to String -->
+              <core:invokeStatic className="org.apache.commons.io.IOUtils" method="toString" var="resultString">
+                <core:arg type="java.io.InputStream" value="${outPutResponse}"/>
+                <core:arg value="UTF-8"/>
+              </core:invokeStatic>
+              
+              <!-- Close connection  -->
+              <core:expr value="${outPutResponse.close()}"/>
+              
+              <!-- Convert String to JSON -->
+              <core:new className="org.json.JSONObject" var="listParseJson">
+                <core:arg type="java.lang.String" value="${resultString}"/>
+              </core:new>
+              
+              <!-- Show JSON info
+              <core:set var="jsonRetorn" value="${listParseJson.get('MessageHeaderResponse').Response.Return}"/>		     
+              -->
+              
+              <!-- Check error  -->
+              <core:set value="${resultString.contains('ERROR')}" var="checkResponse"/>
+              
+              <gel:out> Any error?: ${checkResponse} </gel:out>
+              <gel:out> resultString: ${resultString} </gel:out>              
+            </core:when>
+            <core:otherwise>
+              <gel:out>Error request</gel:out>
+              <gel:out> responseCode != 200: ${responseCode}</gel:out>
+            </core:otherwise>
+            <!-- End check response -->
+          </core:choose>
+        </core:otherwise>
+        <!-- End call  -->
+      </core:choose>
+    </core:otherwise>
+    <!-- End Token OK -->
+    <!--
+*****************************************************************************************************************************************************
+            Save infos using xog.
+*****************************************************************************************************************************************************
+-->
+    <!-- XOG base -->
+    <gel:parse var="xog_base">
+      <NikuDataBus xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../xsd/nikuxog_customObjectInstance.xsd">
+        <Header action="write" externalSource="NIKU" objectType="customObjectInstance" version="15"/>
+        <customObjectInstances objectCode="">
+          <instance instanceCode="" objectCode="">
+            <CustomInformation>              
+              <ColumnValue name="">${resultString}</ColumnValue>
+            </CustomInformation>
+          </instance>
+        </customObjectInstances>
+      </NikuDataBus>
+    </gel:parse>
+    <!-- Execute XOG -->
+    <soap:invoke endpoint="${xog_url}" var="result">
+      <soap:message>
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xog="http://www.niku.com/xog">
+          <soapenv:Header>
+            <xog:Auth>
+              <xog:SessionID>${sessionID}</xog:SessionID>
+            </xog:Auth>
+          </soapenv:Header>
+          <soapenv:Body>
+            <gel:include select="$xog_base"/>
+          </soapenv:Body>
+        </soapenv:Envelope>
+      </soap:message>
+    </soap:invoke>
+  </core:choose>
+  <!-- Fazendo Logout -->
+  <core:include file="./gel-includes/xog_logout.xml"/>
+</gel:script>
