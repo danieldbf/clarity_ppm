@@ -4,8 +4,8 @@
 ![image](https://user-images.githubusercontent.com/29712683/129990778-54b6828d-5d01-4f12-a78f-6f607d1be9c6.png)
 <br/>
 
-### Firt, do you need set: <br/>
-  <br/>
+### Firt, do you need set:
+
   URL API in utils.js (line 25).<br/>
 ![image](https://user-images.githubusercontent.com/29712683/129990937-65996218-c3c3-4d59-9e8d-c2ca3729a611.png)
   
